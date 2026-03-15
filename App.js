@@ -596,25 +596,34 @@ function GameScreen({
       {overlay && (
         <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
           {overlay === "win" ? (
-            <>
-              <Text style={styles.overlayText}>You Win 🎉</Text>
-              <Text style={styles.overlaySub}>
-                Score {score} | High {Math.max(highScore, score)}
+            <View style={styles.winPanel}>
+              <View style={styles.winBadge}>
+                <Text style={styles.winBadgeText}>VICTORY</Text>
+              </View>
+              <Text style={styles.winTitle}>LEVEL CLEARED!</Text>
+              <Text style={styles.winScore}>SCORE {score}</Text>
+              <Text style={styles.winHighScore}>
+                BEST {Math.max(highScore, score)}
               </Text>
-              <Text style={styles.rewardText}>+{reward} diamonds earned</Text>
+              <View style={styles.winRewardPill}>
+                <Text style={styles.winRewardIcon}>◆</Text>
+                <Text style={styles.winRewardText}>+{reward} DIAMONDS</Text>
+              </View>
               <TouchableOpacity
-                style={styles.button}
+                style={styles.winPrimaryButton}
                 onPress={() => onWin(level, score, "next")}
               >
-                <Text style={styles.buttonText}>
+                <Text style={styles.winPrimaryButtonText}>
                   {level < MAX_LEVELS ? "Collect & Next" : "Collect Reward"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.secondaryButton}
+                style={styles.winSecondaryButton}
                 onPress={() => onWin(level, score, "levels")}
               >
-                <Text style={styles.secondaryButtonText}>Back to Levels</Text>
+                <Text style={styles.winSecondaryButtonText}>
+                  Back to Levels
+                </Text>
               </TouchableOpacity>
               <View style={styles.overlayActionRow}>
                 <TouchableOpacity
@@ -630,7 +639,7 @@ function GameScreen({
                   <Text style={styles.overlayMiniButtonText}>Rate</Text>
                 </TouchableOpacity>
               </View>
-            </>
+            </View>
           ) : (
             <>
               <Text style={styles.overlayText}>Game Over</Text>
@@ -768,19 +777,23 @@ function LevelSelectScreen({
 }) {
   return (
     <View style={styles.levelsContainer}>
-      <View style={styles.gameHeader}>
+      <View style={styles.levelsHeader}>
+        <TouchableOpacity style={styles.cornerButton} onPress={onBack}>
+          <Text style={styles.cornerButtonText}>Home</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.cornerButton} onPress={onBack}>
-        <Text style={styles.cornerButtonText}>Home</Text>
-      </TouchableOpacity>
-
-      <DiamondBadge value={diamonds} style={styles.diamondBadgeLevels} />
+        <DiamondBadge value={diamonds} />
       </View>
 
-      <Text style={styles.levelTitle}>Select Stage</Text>
-      <Text style={styles.levelSubtitle}>
-        Pick a board and keep the flood run alive.
-      </Text>
+      <View style={styles.levelTitleWrap}>
+        <View style={styles.levelTopBadge}>
+          <Text style={styles.levelTopBadgeText}>STAGE MAP</Text>
+        </View>
+        <Text style={styles.levelTitle}>CHOOSE YOUR LEVEL</Text>
+        <Text style={styles.levelSubtitle}>
+          Clear boards, unlock the next challenge, and keep the streak alive.
+        </Text>
+      </View>
 
       <View style={styles.levelDeck}>
         <ScrollView
@@ -803,6 +816,9 @@ function LevelSelectScreen({
                   isSelected && !locked && styles.levelCardActive
                 ]}
               >
+                <View style={styles.levelCardBadge}>
+                  <Text style={styles.levelCardBadgeText}>STAGE</Text>
+                </View>
                 <Text style={styles.levelCardNumber}>Level {level}</Text>
                 <LevelPreview rows={config.rows} cols={config.cols} />
                 {locked ? (
@@ -989,14 +1005,15 @@ const styles = StyleSheet.create({
 
   header: {
     color: "white",
-    fontSize: 20,
-    fontWeight: "bold"
+    fontSize: 24,
+    fontWeight: "900"
   },
 
   subHeader: {
     color: "#8d96a8",
-    fontSize: 13,
-    marginTop: 4
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: "700"
   },
 
   gameHeader: {
@@ -1018,7 +1035,8 @@ const styles = StyleSheet.create({
   moves: {
     color: "white",
     marginBottom: 14,
-    fontWeight: "bold"
+    fontWeight: "900",
+    fontSize: 18
   },
 
   gameContent: {
@@ -1081,32 +1099,137 @@ const styles = StyleSheet.create({
 
   overlayText: {
     color: "white",
-    fontSize: 32,
-    fontWeight: "bold"
+    fontSize: 34,
+    fontWeight: "900"
   },
 
   overlaySub: {
     color: "white",
-    marginTop: 10
+    marginTop: 10,
+    fontSize: 18,
+    fontWeight: "700"
   },
 
   rewardText: {
     color: "#71f79f",
     marginTop: 10,
-    fontSize: 16,
-    fontWeight: "bold"
+    fontSize: 18,
+    fontWeight: "900"
+  },
+
+  winPanel: {
+    width: "86%",
+    maxWidth: 360,
+    alignItems: "center",
+    backgroundColor: "#fff4db",
+    borderRadius: 30,
+    paddingHorizontal: 24,
+    paddingTop: 26,
+    paddingBottom: 24,
+    borderWidth: 4,
+    borderColor: "#ffd54f"
+  },
+
+  winBadge: {
+    backgroundColor: "#ff6b35",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8
+  },
+
+  winBadgeText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 1.2
+  },
+
+  winTitle: {
+    color: "#1c1404",
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: "900",
+    textAlign: "center",
+    marginTop: 18
+  },
+
+  winScore: {
+    color: "#2b2110",
+    fontSize: 24,
+    fontWeight: "900",
+    marginTop: 16
+  },
+
+  winHighScore: {
+    color: "#7b6541",
+    fontSize: 17,
+    fontWeight: "800",
+    marginTop: 6
+  },
+
+  winRewardPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#171d29",
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    marginTop: 20
+  },
+
+  winRewardIcon: {
+    color: "#7ed7ff",
+    fontSize: 22,
+    marginRight: 8
+  },
+
+  winRewardText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900"
+  },
+
+  winPrimaryButton: {
+    width: "100%",
+    marginTop: 22,
+    backgroundColor: "#2ecc71",
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: "center"
+  },
+
+  winPrimaryButtonText: {
+    color: "#062010",
+    fontSize: 20,
+    fontWeight: "900"
+  },
+
+  winSecondaryButton: {
+    width: "100%",
+    marginTop: 12,
+    backgroundColor: "#1b2330",
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: "center"
+  },
+
+  winSecondaryButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "800"
   },
 
   button: {
     marginTop: 20,
     backgroundColor: "white",
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14
   },
 
   buttonText: {
-    fontWeight: "bold"
+    fontWeight: "900",
+    fontSize: 18
   },
 
   overlayActionRow: {
@@ -1126,7 +1249,8 @@ const styles = StyleSheet.create({
 
   overlayMiniButtonText: {
     color: "white",
-    fontWeight: "bold"
+    fontWeight: "800",
+    fontSize: 16
   },
 
   secondaryButton: {
@@ -1140,7 +1264,8 @@ const styles = StyleSheet.create({
 
   secondaryButtonText: {
     color: "white",
-    fontWeight: "bold"
+    fontWeight: "800",
+    fontSize: 17
   },
 
   cornerButton: {
@@ -1163,7 +1288,8 @@ const styles = StyleSheet.create({
 
   cornerButtonText: {
     color: "white",
-    fontWeight: "700"
+    fontWeight: "800",
+    fontSize: 15
   },
 
   diamondBadge: {
@@ -1185,7 +1311,8 @@ const styles = StyleSheet.create({
 
   diamondText: {
     color: "white",
-    fontWeight: "bold"
+    fontWeight: "900",
+    fontSize: 16
   },
 
   homeContainer: {
@@ -1233,14 +1360,15 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row" },
 
   titleLetter: {
-    fontSize: 42,
-    fontWeight: "bold"
+    fontSize: 50,
+    fontWeight: "900"
   },
 
   tagline: {
     color: "#888",
-    fontSize: 15,
-    marginTop: 6
+    fontSize: 17,
+    marginTop: 10,
+    fontWeight: "700"
   },
 
   playButton: {
@@ -1254,8 +1382,8 @@ const styles = StyleSheet.create({
   },
 
   playText: {
-    fontWeight: "bold",
-    fontSize: 18,
+    fontWeight: "900",
+    fontSize: 22,
     color: "black"
   },
 
@@ -1272,7 +1400,8 @@ const styles = StyleSheet.create({
 
   removeAdsText: {
     color: "white",
-    fontWeight: "bold"
+    fontWeight: "900",
+    fontSize: 16
   },
 
   homeActionRow: {
@@ -1295,13 +1424,15 @@ const styles = StyleSheet.create({
 
   homeSecondaryActionText: {
     color: "white",
-    fontWeight: "bold"
+    fontWeight: "800",
+    fontSize: 16
   },
 
   bestText: {
     color: "#aaa",
     marginTop: 20,
-    fontSize: 16
+    fontSize: 18,
+    fontWeight: "800"
   },
 
   version: {
@@ -1312,72 +1443,126 @@ const styles = StyleSheet.create({
 
   levelsContainer: {
     flex: 1,
-    flexDirection: "column",
     backgroundColor: "#0f0f0f",
-    paddingTop: 110
+    width: "100%",
+    paddingTop: 18,
+    paddingBottom: 26
+  },
+
+  levelsHeader: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    minHeight: 54
+  },
+
+  levelTitleWrap: {
+    width: "100%",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 20
+  },
+
+  levelTopBadge: {
+    backgroundColor: "#ff6b35",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8
+  },
+
+  levelTopBadgeText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 1.2
   },
 
   levelTitle: {
-    color: "white",
-    fontSize: 30,
-    fontWeight: "bold",
-    paddingHorizontal: 24,
-    marginTop: 20
+    color: "#fff4db",
+    fontSize: 34,
+    fontWeight: "900",
+    textAlign: "center",
+    marginTop: 18
   },
 
   levelSubtitle: {
-    color: "#8b93a5",
-    fontSize: 15,
-    lineHeight: 21,
-    paddingHorizontal: 24,
+    color: "#d4c7aa",
+    fontSize: 17,
+    lineHeight: 24,
+    textAlign: "center",
     marginTop: 10,
-    maxWidth: 320
+    maxWidth: 340,
+    fontWeight: "700"
   },
 
   levelDeck: {
-    marginTop: 28,
+    flex: 1,
     marginHorizontal: 16,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: "#293246",
-    backgroundColor: "#141a24",
-    paddingVertical: 22
+    borderRadius: 34,
+    borderWidth: 3,
+    borderColor: "#ffd54f",
+    backgroundColor: "#fff4db",
+    paddingVertical: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 }
   },
 
   levelScroller: {
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
+    alignItems: "center"
   },
 
   levelCard: {
-    width: 176,
-    minHeight: 228,
-    marginRight: 16,
-    borderRadius: 24,
+    width: 196,
+    minHeight: 260,
+    marginRight: 18,
+    borderRadius: 28,
     backgroundColor: "#1b2330",
-    borderWidth: 1,
+    borderWidth: 3,
     borderColor: "#2f3c53",
     padding: 18,
     justifyContent: "space-between"
   },
 
   levelCardActive: {
-    borderColor: "#7ed7ff",
-    transform: [{ translateY: -4 }]
+    borderColor: "#2ecc71",
+    transform: [{ translateY: -8 }]
   },
 
   levelCardLocked: {
-    opacity: 0.35
+    opacity: 0.42
+  },
+
+  levelCardBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#ff6b35",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6
+  },
+
+  levelCardBadgeText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1
   },
 
   levelCardNumber: {
-    color: "white",
-    fontSize: 22,
-    fontWeight: "bold"
+    color: "#fff4db",
+    fontSize: 28,
+    fontWeight: "900",
+    marginTop: 14
   },
 
   levelPreview: {
-    marginTop: 16,
-    marginBottom: 14,
+    marginTop: 18,
+    marginBottom: 16,
     alignSelf: "center"
   },
 
@@ -1393,32 +1578,32 @@ const styles = StyleSheet.create({
   levelCardLockedChip: {
     alignSelf: "flex-start",
     backgroundColor: "#10151f",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#2a3242",
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8
+    paddingHorizontal: 14,
+    paddingVertical: 9
   },
 
   levelCardLockedText: {
-    color: "#8b93a5",
-    fontWeight: "bold",
+    color: "#a6b0c2",
+    fontWeight: "900",
     textTransform: "uppercase",
-    fontSize: 12,
-    letterSpacing: 0.8
+    fontSize: 13,
+    letterSpacing: 0.9
   },
 
   levelPlayButton: {
-    backgroundColor: "#7ed7ff",
-    borderRadius: 16,
-    paddingVertical: 12,
+    backgroundColor: "#2ecc71",
+    borderRadius: 18,
+    paddingVertical: 14,
     alignItems: "center"
   },
 
   levelPlayButtonText: {
-    color: "#07111f",
-    fontWeight: "bold",
-    fontSize: 16
+    color: "#062010",
+    fontWeight: "900",
+    fontSize: 20
   },
 
   removeAdsContainer: {
