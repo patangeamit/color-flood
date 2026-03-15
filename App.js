@@ -10,7 +10,7 @@ import {
   Alert
 } from "react-native"
 
-const { width } = Dimensions.get("window")
+const { width, height } = Dimensions.get("window")
 
 const COLORS = [
   "#e74c3c",
@@ -21,38 +21,158 @@ const COLORS = [
   "#e67e22"
 ]
 
+const MAX_LEVELS = 20
+const STARTING_DIAMONDS = 1
+
+function getLevelConfig(level) {
+  const index = Math.max(0, level - 1)
+  const cols = Math.min(5 + Math.floor((index + 1) / 2), 12)
+  const rows = Math.min(7 + Math.floor(index / 2), 14)
+  const moveLimit = rows + cols + 6 + Math.floor(index / 2)
+  const entryCost = 1 + Math.floor(index / 2)
+  const reward = entryCost + 3
+
+  return { rows, cols, moveLimit, entryCost, reward }
+}
+
 export default function App() {
   const [screen, setScreen] = useState("home")
   const [highScore, setHighScore] = useState(0)
+  const [diamonds, setDiamonds] = useState(STARTING_DIAMONDS)
+  const [unlockedLevel, setUnlockedLevel] = useState(1)
+  const [selectedLevel, setSelectedLevel] = useState(1)
+  const [gameSession, setGameSession] = useState(0)
+
+  function openLevelSelect() {
+    setScreen("levels")
+  }
+
+  function offerWatchAd(requiredDiamonds) {
+    Alert.alert(
+      "Out of diamonds",
+      `You need ${requiredDiamonds} diamonds. Watch an ad to get 5 diamonds?`,
+      [
+        { text: "Not now", style: "cancel" },
+        {
+          text: "Watch Ad",
+          onPress: () => {
+            setDiamonds(current => current + 5)
+            Alert.alert("Ad complete", "You received 5 diamonds.")
+          }
+        }
+      ]
+    )
+  }
+
+  function enterLevel(level) {
+    if (level > unlockedLevel) return
+
+    const { entryCost } = getLevelConfig(level)
+
+    if (diamonds < entryCost) {
+      offerWatchAd(entryCost)
+      return
+    }
+
+    setDiamonds(current => current - entryCost)
+    setSelectedLevel(level)
+    setGameSession(current => current + 1)
+    setScreen("game")
+  }
+
+  function collectWin(level, score) {
+    const { reward } = getLevelConfig(level)
+    const nextUnlocked = Math.max(
+      unlockedLevel,
+      Math.min(MAX_LEVELS, level + 1)
+    )
+    const availableDiamonds = diamonds + reward
+
+    setDiamonds(availableDiamonds)
+    setUnlockedLevel(nextUnlocked)
+    setHighScore(current => Math.max(current, score))
+
+    return { reward, availableDiamonds }
+  }
+
+  function handleWin(level, score, action) {
+    const outcome = collectWin(level, score)
+
+    if (action === "next" && level < MAX_LEVELS) {
+      const nextLevel = level + 1
+      const { entryCost } = getLevelConfig(nextLevel)
+
+      if (outcome.availableDiamonds >= entryCost) {
+        setDiamonds(outcome.availableDiamonds - entryCost)
+        setSelectedLevel(nextLevel)
+        setGameSession(current => current + 1)
+        setScreen("game")
+        return
+      }
+
+      offerWatchAd(entryCost)
+    }
+
+    setScreen("levels")
+  }
+
+  function handleRetry(level) {
+    enterLevel(level)
+  }
 
   if (screen === "home") {
     return (
       <HomeScreen
         highScore={highScore}
-        onPlay={() => setScreen("game")}
+        diamonds={diamonds}
+        onPlay={openLevelSelect}
         onRemoveAds={() => setScreen("removeAds")}
       />
     )
   }
 
   if (screen === "removeAds") {
-    return <RemoveAdsScreen onBack={() => setScreen("home")} />
+    return (
+      <RemoveAdsScreen diamonds={diamonds} onBack={() => setScreen("home")} />
+    )
+  }
+
+  if (screen === "levels") {
+    return (
+      <LevelSelectScreen
+        diamonds={diamonds}
+        unlockedLevel={unlockedLevel}
+        selectedLevel={selectedLevel}
+        onBack={() => setScreen("home")}
+        onSelectLevel={enterLevel}
+      />
+    )
   }
 
   return (
     <GameScreen
+      level={selectedLevel}
+      sessionId={gameSession}
+      diamonds={diamonds}
       highScore={highScore}
-      setHighScore={setHighScore}
-      onExit={() => setScreen("home")}
+      onBackToLevels={() => setScreen("levels")}
+      onRetry={handleRetry}
+      onWin={handleWin}
     />
   )
 }
 
-function GameScreen({ highScore, setHighScore, onExit }) {
-  const highScoreRef = useRef(highScore)
-  const [level, setLevel] = useState(1)
+function GameScreen({
+  level,
+  sessionId,
+  diamonds,
+  highScore,
+  onBackToLevels,
+  onRetry,
+  onWin
+}) {
   const [grid, setGrid] = useState([])
-  const [movesLeft, setMovesLeft] = useState(22)
+  const [movesLeft, setMovesLeft] = useState(getLevelConfig(level).moveLimit)
   const [territoryColor, setTerritoryColor] = useState(0)
   const [overlay, setOverlay] = useState(null)
   const [score, setScore] = useState(0)
@@ -62,25 +182,38 @@ function GameScreen({ highScore, setHighScore, onExit }) {
 
   const tileAnim = useRef({}).current
 
-  const size = level === 1 ? 8 : level === 2 ? 10 : 12
-  const moveLimit = level === 1 ? 22 : level === 2 ? 27 : 30
-
+  const { rows, cols, moveLimit, entryCost, reward } = getLevelConfig(level)
   const gap = 3
-  const tileSize = (width - gap * (size + 1)) / size
+  const horizontalPadding = 24
+  const boardMaxWidth = width - horizontalPadding
+  const boardMaxHeight = height - 320
+  const tileSize = Math.max(
+    16,
+    Math.floor(
+      Math.min(
+        (boardMaxWidth - gap * (cols + 1)) / cols,
+        (boardMaxHeight - gap * (rows + 1)) / rows
+      )
+    )
+  )
 
   useEffect(() => {
-    newGame(level)
-  }, [])
+    newGame()
+  }, [level, sessionId])
 
-  function newGame(lvl) {
-    const s = lvl === 1 ? 8 : lvl === 2 ? 10 : 12
-    const m = lvl === 1 ? 22 : lvl === 2 ? 27 : 30
+  function newGame() {
+    const { rows: nextRows, cols: nextCols, moveLimit: nextMoveLimit } =
+      getLevelConfig(level)
 
     const g = []
 
-    for (let y = 0; y < s; y++) {
+    Object.keys(tileAnim).forEach(key => {
+      delete tileAnim[key]
+    })
+
+    for (let y = 0; y < nextRows; y++) {
       const row = []
-      for (let x = 0; x < s; x++) {
+      for (let x = 0; x < nextCols; x++) {
         row.push({
           color: Math.floor(Math.random() * COLORS.length),
           owned: false
@@ -92,7 +225,7 @@ function GameScreen({ highScore, setHighScore, onExit }) {
     g[0][0].owned = true
 
     setGrid(g)
-    setMovesLeft(m)
+    setMovesLeft(nextMoveLimit)
     setOverlay(null)
     setScore(0)
     setTerritoryColor(g[0][0].color)
@@ -107,7 +240,7 @@ function GameScreen({ highScore, setHighScore, onExit }) {
     const queue = []
 
     for (let y = 0; y < g.length; y++) {
-      for (let x = 0; x < g.length; x++) {
+      for (let x = 0; x < g[y].length; x++) {
         if (g[y][x].owned) {
           g[y][x].color = newColor
           queue.push([x, y])
@@ -134,8 +267,8 @@ function GameScreen({ highScore, setHighScore, onExit }) {
         if (
           nx >= 0 &&
           ny >= 0 &&
-          nx < g.length &&
           ny < g.length &&
+          nx < g[ny].length &&
           !g[ny][nx].owned &&
           g[ny][nx].color === newColor
         ) {
@@ -172,17 +305,12 @@ function GameScreen({ highScore, setHighScore, onExit }) {
     let all = true
 
     for (let y = 0; y < g.length; y++) {
-      for (let x = 0; x < g.length; x++) {
+      for (let x = 0; x < g[y].length; x++) {
         if (g[y][x].color !== first) all = false
       }
     }
 
     if (all) {
-      if (sc > highScoreRef.current) {
-        highScoreRef.current = sc
-        setHighScore(sc)
-      }
-
       setOverlay("win")
 
       Animated.timing(overlayOpacity, {
@@ -199,16 +327,6 @@ function GameScreen({ highScore, setHighScore, onExit }) {
         useNativeDriver: true
       }).start()
     }
-  }
-
-  function nextLevel() {
-    const lvl = level + 1
-    setLevel(lvl)
-    newGame(lvl)
-  }
-
-  function reset() {
-    newGame(level)
   }
 
   function palettePress(i) {
@@ -231,19 +349,24 @@ function GameScreen({ highScore, setHighScore, onExit }) {
       <TouchableOpacity
         style={styles.exitButton}
         onPress={() =>
-          Alert.alert("Quit game?", "Your progress will be lost.", [
+          Alert.alert("Leave level?", "You can replay it from the level list.", [
             { text: "Cancel", style: "cancel" },
-            { text: "Quit", onPress: onExit }
+            { text: "Leave", onPress: onBackToLevels }
           ])
         }
       >
         <Text style={{ color: "white", fontSize: 22 }}>✕</Text>
       </TouchableOpacity>
 
+      <DiamondBadge value={diamonds} style={styles.diamondBadgeGame} />
+
       <Text style={styles.header}>Level {level}</Text>
       <Text style={styles.header}>Score {score}</Text>
+      <Text style={styles.subHeader}>
+        {rows} x {cols} grid • Entry {entryCost} • Win +{reward}
+      </Text>
 
-      <View style={{ marginTop: 12 }}>
+      <View style={styles.board}>
         {grid.map((row, y) => (
           <View key={y} style={{ flexDirection: "row" }}>
             {row.map((tile, x) => {
@@ -297,17 +420,41 @@ function GameScreen({ highScore, setHighScore, onExit }) {
             <>
               <Text style={styles.overlayText}>You Win 🎉</Text>
               <Text style={styles.overlaySub}>
-                Score {score} | High {highScoreRef.current}
+                Score {score} | High {Math.max(highScore, score)}
               </Text>
-              <TouchableOpacity style={styles.button} onPress={nextLevel}>
-                <Text style={styles.buttonText}>Next Level</Text>
+              <Text style={styles.rewardText}>+{reward} diamonds earned</Text>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => onWin(level, score, "next")}
+              >
+                <Text style={styles.buttonText}>
+                  {level < MAX_LEVELS ? "Collect & Next" : "Collect Reward"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => onWin(level, score, "levels")}
+              >
+                <Text style={styles.secondaryButtonText}>Back to Levels</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
               <Text style={styles.overlayText}>Game Over</Text>
-              <TouchableOpacity style={styles.button} onPress={reset}>
-                <Text style={styles.buttonText}>Play Again</Text>
+              <Text style={styles.overlaySub}>
+                Retry costs {entryCost} diamonds
+              </Text>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => onRetry(level)}
+              >
+                <Text style={styles.buttonText}>Retry Level</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={onBackToLevels}
+              >
+                <Text style={styles.secondaryButtonText}>Choose Another</Text>
               </TouchableOpacity>
             </>
           )}
@@ -317,7 +464,7 @@ function GameScreen({ highScore, setHighScore, onExit }) {
   )
 }
 
-function HomeScreen({ highScore, onPlay, onRemoveAds }) {
+function HomeScreen({ highScore, diamonds, onPlay, onRemoveAds }) {
   const size = 5
   const gap = 3
   const tileSize = (width * 0.7 - gap * size) / size
@@ -330,6 +477,8 @@ function HomeScreen({ highScore, onPlay, onRemoveAds }) {
 
   return (
     <View style={styles.homeContainer}>
+      <DiamondBadge value={diamonds} style={styles.diamondBadgeHome} />
+
       <View style={styles.titleRow}>
         {"COLOR FLOOD".split("").map((l, i) => (
           <Text
@@ -377,7 +526,105 @@ function HomeScreen({ highScore, onPlay, onRemoveAds }) {
   )
 }
 
-function RemoveAdsScreen({ onBack }) {
+function LevelSelectScreen({
+  diamonds,
+  unlockedLevel,
+  selectedLevel,
+  onBack,
+  onSelectLevel
+}) {
+  return (
+    <View style={styles.levelsContainer}>
+      <TouchableOpacity style={styles.backArrow} onPress={onBack}>
+        <Text style={{ color: "white", fontSize: 24 }}>←</Text>
+      </TouchableOpacity>
+
+      <DiamondBadge value={diamonds} style={styles.diamondBadgeLevels} />
+
+      <Text style={styles.levelTitle}>Choose a Level</Text>
+      <Text style={styles.levelSubtitle}>
+        Finish levels to unlock more boards and keep your diamond run going.
+      </Text>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.levelScroller}
+      >
+        {Array.from({ length: MAX_LEVELS }, (_, index) => {
+          const level = index + 1
+          const config = getLevelConfig(level)
+          const locked = level > unlockedLevel
+          const isSelected = level === selectedLevel
+
+          return (
+            <TouchableOpacity
+              key={level}
+              activeOpacity={0.9}
+              disabled={locked}
+              onPress={() => onSelectLevel(level)}
+              style={[
+                styles.levelCard,
+                locked && styles.levelCardLocked,
+                isSelected && !locked && styles.levelCardActive
+              ]}
+            >
+              <Text style={styles.levelCardNumber}>Level {level}</Text>
+              <LevelPreview rows={config.rows} cols={config.cols} />
+              <Text style={styles.levelCardMeta}>
+                {config.moveLimit} moves
+              </Text>
+              <Text style={styles.levelCardMeta}>Entry {config.entryCost}</Text>
+              <Text style={styles.levelCardState}>
+                {locked ? "Locked" : "Tap to play"}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+    </View>
+  )
+}
+
+function LevelPreview({ rows, cols }) {
+  const previewWidth = 120
+  const gap = 2
+  const tileSize = Math.max(
+    4,
+    Math.floor(
+      Math.min(
+        (previewWidth - gap * (cols - 1)) / cols,
+        (72 - gap * (rows - 1)) / rows
+      )
+    )
+  )
+
+  return (
+    <View style={styles.levelPreview}>
+      {Array.from({ length: rows }, (_, rowIndex) => (
+        <View key={rowIndex} style={styles.levelPreviewRow}>
+          {Array.from({ length: cols }, (_, colIndex) => (
+            <View
+              key={colIndex}
+              style={[
+                styles.levelPreviewTile,
+                {
+                  width: tileSize,
+                  height: tileSize,
+                  marginRight: colIndex === cols - 1 ? 0 : gap,
+                  marginBottom: gap,
+                  backgroundColor: COLORS[(rowIndex + colIndex) % COLORS.length]
+                }
+              ]}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  )
+}
+
+function RemoveAdsScreen({ diamonds, onBack }) {
   return (
     <ScrollView
       contentContainerStyle={styles.removeAdsContainer}
@@ -386,6 +633,8 @@ function RemoveAdsScreen({ onBack }) {
       <TouchableOpacity style={styles.backArrow} onPress={onBack}>
         <Text style={{ color: "white", fontSize: 24 }}>←</Text>
       </TouchableOpacity>
+
+      <DiamondBadge value={diamonds} style={styles.diamondBadgeLevels} />
 
       <Text style={styles.crown}>👑</Text>
 
@@ -427,6 +676,15 @@ function RemoveAdsScreen({ onBack }) {
   )
 }
 
+function DiamondBadge({ value, style }) {
+  return (
+    <View style={[styles.diamondBadge, style]}>
+      <Text style={styles.diamondIcon}>◆</Text>
+      <Text style={styles.diamondText}>{value}</Text>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -441,6 +699,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold"
   },
 
+  subHeader: {
+    color: "#8d96a8",
+    fontSize: 13,
+    marginTop: 6
+  },
+
   moves: {
     color: "white",
     marginTop: 12,
@@ -449,6 +713,9 @@ const styles = StyleSheet.create({
 
   palette: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    width: 208,
     marginTop: 20
   },
 
@@ -457,7 +724,11 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderColor: "white",
-    marginHorizontal: 6
+    margin: 6
+  },
+
+  board: {
+    marginTop: 12
   },
 
   overlay: {
@@ -482,6 +753,13 @@ const styles = StyleSheet.create({
     marginTop: 10
   },
 
+  rewardText: {
+    color: "#71f79f",
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: "bold"
+  },
+
   button: {
     marginTop: 20,
     backgroundColor: "white",
@@ -494,11 +772,62 @@ const styles = StyleSheet.create({
     fontWeight: "bold"
   },
 
+  secondaryButton: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#3b4354",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8
+  },
+
+  secondaryButtonText: {
+    color: "white",
+    fontWeight: "bold"
+  },
+
   exitButton: {
     position: "absolute",
     top: 50,
     left: 20,
     zIndex: 10
+  },
+
+  diamondBadge: {
+    position: "absolute",
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1c2331",
+    borderWidth: 1,
+    borderColor: "#344056",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    zIndex: 10
+  },
+
+  diamondBadgeHome: {
+    top: 56
+  },
+
+  diamondBadgeGame: {
+    top: 50
+  },
+
+  diamondBadgeLevels: {
+    top: 40
+  },
+
+  diamondIcon: {
+    color: "#7ed7ff",
+    fontSize: 16,
+    marginRight: 6
+  },
+
+  diamondText: {
+    color: "white",
+    fontWeight: "bold"
   },
 
   homeContainer: {
@@ -564,6 +893,94 @@ const styles = StyleSheet.create({
     color: "#555",
     fontSize: 12,
     marginTop: 20
+  },
+
+  levelsContainer: {
+    flex: 1,
+    backgroundColor: "#0f0f0f",
+    paddingTop: 110
+  },
+
+  levelTitle: {
+    color: "white",
+    fontSize: 30,
+    fontWeight: "bold",
+    paddingHorizontal: 24
+  },
+
+  levelSubtitle: {
+    color: "#8b93a5",
+    fontSize: 15,
+    lineHeight: 21,
+    paddingHorizontal: 24,
+    marginTop: 10,
+    maxWidth: 320
+  },
+
+  levelScroller: {
+    paddingHorizontal: 24,
+    paddingTop: 30,
+    paddingBottom: 40
+  },
+
+  levelCard: {
+    width: width * 0.62,
+    maxWidth: 260,
+    minHeight: 190,
+    marginRight: 16,
+    borderRadius: 20,
+    backgroundColor: "#1a1f2b",
+    borderWidth: 1,
+    borderColor: "#2f384c",
+    padding: 20,
+    justifyContent: "space-between"
+  },
+
+  levelCardActive: {
+    borderColor: "#7ed7ff",
+    transform: [{ translateY: -4 }]
+  },
+
+  levelCardLocked: {
+    opacity: 0.35
+  },
+
+  levelCardNumber: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "bold"
+  },
+
+  levelCardGrid: {
+    color: "#dbe6ff",
+    fontSize: 18,
+    marginTop: 12
+  },
+
+  levelPreview: {
+    marginTop: 16,
+    marginBottom: 8,
+    alignSelf: "flex-start"
+  },
+
+  levelPreviewRow: {
+    flexDirection: "row"
+  },
+
+  levelPreviewTile: {
+    borderRadius: 2
+  },
+
+  levelCardMeta: {
+    color: "#8b93a5",
+    fontSize: 14,
+    marginTop: 8
+  },
+
+  levelCardState: {
+    color: "#7ed7ff",
+    fontWeight: "bold",
+    marginTop: 18
   },
 
   removeAdsContainer: {
