@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import ConfettiCannon from "react-native-confetti-cannon"
 import {
@@ -6,6 +13,7 @@ import {
   Text,
   TouchableOpacity,
   Dimensions,
+  StatusBar,
   StyleSheet,
   Animated,
   ScrollView,
@@ -24,15 +32,16 @@ const COLORS = [
   "#e67e22"
 ]
 
-const MAX_LEVELS = 20
+const MAX_LEVELS = 30
 const STARTING_DIAMONDS = 1
 const DIALOG_IDLE = { visible: false, title: "", message: "", actions: [] }
 const STORAGE_KEY = "color-flood-progress"
+const TOP_INSET = (StatusBar.currentHeight || 0) + 12
 
 function getLevelConfig(level) {
   const index = Math.max(0, level - 1)
-  const cols = Math.min(5 + Math.floor((index + 1) / 2), 12)
-  const rows = Math.min(7 + Math.floor(index / 2), 14)
+  const cols = Math.min(5 + Math.floor((index + 1) / 2), 18)
+  const rows = Math.min(7 + Math.floor(index / 2), 21)
   const moveLimit = rows + cols + 6 + Math.floor(index / 2)
   const entryCost = 1 + Math.floor(index / 2)
   const reward = entryCost + 3
@@ -50,35 +59,36 @@ export default function App() {
   const [isReady, setIsReady] = useState(false)
   const [dialog, setDialog] = useState(DIALOG_IDLE)
   const dialogResolverRef = useRef(null)
+  const diamondsRef = useRef(diamonds)
+  const unlockedLevelRef = useRef(unlockedLevel)
 
-  function openLevelSelect() {
+  useEffect(() => {
+    diamondsRef.current = diamonds
+    unlockedLevelRef.current = unlockedLevel
+  }, [diamonds, unlockedLevel])
+
+  const openLevelSelect = useCallback(() => {
     setScreen("levels")
-  }
+  }, [])
 
   useEffect(() => {
     let mounted = true
 
     async function loadProgress() {
-      console.log("Loading progress...", STORAGE_KEY)
       let savedState = null
 
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY)
         savedState = raw ? JSON.parse(raw) : null
       } catch (error) {
-        console.log("Failed to load progress, starting fresh.", error)
         savedState = null
       }
 
       if (mounted && savedState) {
         setHighScore(savedState.highScore ?? 0)
         setDiamonds(savedState.diamonds ?? STARTING_DIAMONDS)
-        console.log("Loaded progress:", savedState)
         setUnlockedLevel(savedState.unlockedLevel ?? 1)
         setSelectedLevel(savedState.selectedLevel ?? 1)
-      }
-      else{
-        console.log("No saved progress found, starting fresh.")
       }
 
       if (mounted) {
@@ -98,12 +108,6 @@ export default function App() {
 
     async function persistProgress() {
       try {
-        console.log("Saving progress...",{
-            highScore,
-            diamonds,
-            unlockedLevel,
-            selectedLevel
-          } );
         await AsyncStorage.setItem(
           STORAGE_KEY,
           JSON.stringify({
@@ -121,23 +125,23 @@ export default function App() {
     persistProgress()
   }, [diamonds, highScore, isReady, selectedLevel, unlockedLevel])
 
-  async function showDialog({ title, message, actions }) {
+  const showDialog = useCallback(async ({ title, message, actions }) => {
     return new Promise(resolve => {
       dialogResolverRef.current = resolve
       setDialog({ visible: true, title, message, actions })
     })
-  }
+  }, [])
 
-  function closeDialog(action) {
+  const closeDialog = useCallback(action => {
     setDialog(DIALOG_IDLE)
 
     if (dialogResolverRef.current) {
       dialogResolverRef.current(action)
       dialogResolverRef.current = null
     }
-  }
+  }, [])
 
-  async function offerWatchAd(requiredDiamonds) {
+  const offerWatchAd = useCallback(async requiredDiamonds => {
     const action = await showDialog({
       title: "Out of diamonds",
       message: `You need ${requiredDiamonds} diamonds to keep playing.`,
@@ -156,14 +160,14 @@ export default function App() {
         actions: [{ key: "done", label: "Nice", style: "primary" }]
       })
     }
-  }
+  }, [showDialog])
 
-  async function enterLevel(level) {
-    if (level > unlockedLevel) return
+  const enterLevel = useCallback(async level => {
+    if (level > unlockedLevelRef.current) return
 
     const { entryCost } = getLevelConfig(level)
 
-    if (diamonds < entryCost) {
+    if (diamondsRef.current < entryCost) {
       await offerWatchAd(entryCost)
       return
     }
@@ -172,24 +176,24 @@ export default function App() {
     setSelectedLevel(level)
     setGameSession(current => current + 1)
     setScreen("game")
-  }
+  }, [offerWatchAd])
 
-  function collectWin(level, score) {
+  const collectWin = useCallback((level, score) => {
     const { reward } = getLevelConfig(level)
     const nextUnlocked = Math.max(
-      unlockedLevel,
+      unlockedLevelRef.current,
       Math.min(MAX_LEVELS, level + 1)
     )
-    const availableDiamonds = diamonds + reward
+    const availableDiamonds = diamondsRef.current + reward
 
     setDiamonds(availableDiamonds)
     setUnlockedLevel(nextUnlocked)
     setHighScore(current => Math.max(current, score))
 
     return { reward, availableDiamonds }
-  }
+  }, [])
 
-  async function handleWin(level, score, action) {
+  const handleWin = useCallback(async (level, score, action) => {
     const outcome = collectWin(level, score)
 
     if (action === "next" && level < MAX_LEVELS) {
@@ -208,13 +212,13 @@ export default function App() {
     }
 
     setScreen("levels")
-  }
+  }, [collectWin, offerWatchAd])
 
-  async function handleRetry(level) {
+  const handleRetry = useCallback(async level => {
     await enterLevel(level)
-  }
+  }, [enterLevel])
 
-  async function handleExitLevel() {
+  const handleExitLevel = useCallback(async () => {
     const action = await showDialog({
       title: "Leave level?",
       message: "You can replay it any time from the level select.",
@@ -227,17 +231,29 @@ export default function App() {
     if (action === "leave") {
       setScreen("levels")
     }
-  }
+  }, [showDialog])
 
-  async function handlePaymentSoon() {
+  const handlePaymentSoon = useCallback(async () => {
     await showDialog({
       title: "Premium soon",
       message: "Payments are not wired up yet, but the premium screen is ready.",
       actions: [{ key: "ok", label: "OK", style: "primary" }]
     })
-  }
+  }, [showDialog])
 
-  async function handleShareApp() {
+  const handleHackProgress = useCallback(async () => {
+    setDiamonds(999)
+    setUnlockedLevel(MAX_LEVELS)
+    setSelectedLevel(MAX_LEVELS)
+
+    await showDialog({
+      title: "Test boost active",
+      message: "Unlocked all levels and topped up diamonds for testing.",
+      actions: [{ key: "ok", label: "OK", style: "primary" }]
+    })
+  }, [showDialog])
+
+  const handleShareApp = useCallback(async () => {
     try {
       await Share.share({
         message:
@@ -250,16 +266,16 @@ export default function App() {
         actions: [{ key: "ok", label: "OK", style: "primary" }]
       })
     }
-  }
+  }, [showDialog])
 
-  async function handleRateApp() {
+  const handleRateApp = useCallback(async () => {
     await showDialog({
       title: "Rate Color Flood",
       message:
         "The store rating link is the last thing left to connect. The button is ready once you have the app URL.",
       actions: [{ key: "ok", label: "OK", style: "primary" }]
     })
-  }
+  }, [showDialog])
 
   if (!isReady) {
     return <View style={styles.splashScreen} />
@@ -288,6 +304,7 @@ export default function App() {
           diamonds={diamonds}
           onBack={() => setScreen("home")}
           onPremiumPress={handlePaymentSoon}
+          onHackPress={handleHackProgress}
         />
         <GameDialog dialog={dialog} onClose={closeDialog} />
       </>
@@ -349,27 +366,41 @@ function GameScreen({
   const paletteScale = useRef(COLORS.map(() => new Animated.Value(1))).current
 
   const tileAnim = useRef({}).current
+  const movesLeftRef = useRef(movesLeft)
+  const scoreRef = useRef(score)
 
-  const { rows, cols, moveLimit, entryCost, reward } = getLevelConfig(level)
+  useEffect(() => {
+    movesLeftRef.current = movesLeft
+    scoreRef.current = score
+  }, [movesLeft, score])
+
+  const { rows, cols, moveLimit, entryCost, reward } = useMemo(
+    () => getLevelConfig(level),
+    [level]
+  )
   const gap = 3
   const horizontalPadding = 24
   const boardMaxWidth = width - horizontalPadding
   const boardMaxHeight = height - 320
-  const tileSize = Math.max(
-    16,
-    Math.floor(
-      Math.min(
-        (boardMaxWidth - gap * (cols + 1)) / cols,
-        (boardMaxHeight - gap * (rows + 1)) / rows
-      )
-    )
+  const tileSize = useMemo(
+    () =>
+      Math.max(
+        16,
+        Math.floor(
+          Math.min(
+            (boardMaxWidth - gap * (cols + 1)) / cols,
+            (boardMaxHeight - gap * (rows + 1)) / rows
+          )
+        )
+      ),
+    [boardMaxHeight, boardMaxWidth, cols, gap, rows]
   )
 
   useEffect(() => {
     newGame()
-  }, [level, sessionId])
+  }, [newGame, sessionId])
 
-  function newGame() {
+  const newGame = useCallback(() => {
     const { rows: nextRows, cols: nextCols, moveLimit: nextMoveLimit } =
       getLevelConfig(level)
 
@@ -399,9 +430,40 @@ function GameScreen({
     setConfettiKey(0)
     setTerritoryColor(g[0][0].color)
     overlayOpacity.setValue(0)
-  }
+  }, [level, overlayOpacity, tileAnim])
 
-  function floodFill(newColor) {
+  const checkGame = useCallback((g, moves, sc) => {
+    const first = g[0][0].color
+
+    let all = true
+
+    for (let y = 0; y < g.length; y++) {
+      for (let x = 0; x < g[y].length; x++) {
+        if (g[y][x].color !== first) all = false
+      }
+    }
+
+    if (all) {
+      setOverlay("win")
+      setConfettiKey(current => current + 1)
+
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true
+      }).start()
+    } else if (moves <= 0) {
+      setOverlay("lose")
+
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true
+      }).start()
+    }
+  }, [overlayOpacity])
+
+  const floodFill = useCallback(newColor => {
     if (overlay) return
     if (newColor === territoryColor) return
 
@@ -460,50 +522,18 @@ function GameScreen({
       }).start()
     })
 
-    const nextMoves = movesLeft - 1
+    const nextMoves = movesLeftRef.current - 1
     setGrid(g)
     setTerritoryColor(newColor)
     setMovesLeft(nextMoves)
 
-    const used = moveLimit - nextMoves
-    const sc = Math.max(0, 1000 - used * 40)
+    const sc = scoreRef.current + 40
     setScore(sc)
 
     checkGame(g, nextMoves, sc)
-  }
+  }, [checkGame, overlay, territoryColor, tileAnim])
 
-  function checkGame(g, moves, sc) {
-    const first = g[0][0].color
-
-    let all = true
-
-    for (let y = 0; y < g.length; y++) {
-      for (let x = 0; x < g[y].length; x++) {
-        if (g[y][x].color !== first) all = false
-      }
-    }
-
-    if (all) {
-      setOverlay("win")
-      setConfettiKey(current => current + 1)
-
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 280,
-        useNativeDriver: true
-      }).start()
-    } else if (moves <= 0) {
-      setOverlay("lose")
-
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 280,
-        useNativeDriver: true
-      }).start()
-    }
-  }
-
-  function palettePress(i) {
+  const palettePress = useCallback(i => {
     if (overlay || i === territoryColor) return
 
     floodFill(i)
@@ -518,7 +548,7 @@ function GameScreen({
         useNativeDriver: true
       })
     ]).start()
-  }
+  }, [floodFill, overlay, paletteScale, territoryColor])
 
   return (
     <View style={styles.container}>
@@ -641,24 +671,28 @@ function GameScreen({
               </View>
             </View>
           ) : (
-            <>
-              <Text style={styles.overlayText}>Game Over</Text>
-              <Text style={styles.overlaySub}>
-                Retry costs {entryCost} diamonds
-              </Text>
+            <View style={styles.losePanel}>
+              <View style={styles.loseBadge}>
+                <Text style={styles.loseBadgeText}>OOPS</Text>
+              </View>
+              <Text style={styles.loseTitle}>TRY AGAIN!</Text>
+              <Text style={styles.loseSub}>That board almost cracked.</Text>
+              <View style={styles.loseInfoPill}>
+                <Text style={styles.loseInfoText}>Retry costs {entryCost} ◆</Text>
+              </View>
               <TouchableOpacity
-                style={styles.button}
+                style={styles.losePrimaryButton}
                 onPress={() => onRetry(level)}
               >
-                <Text style={styles.buttonText}>Retry Level</Text>
+                <Text style={styles.losePrimaryButtonText}>Retry Level</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.secondaryButton}
+                style={styles.loseSecondaryButton}
                 onPress={onBackToLevels}
               >
-                <Text style={styles.secondaryButtonText}>Choose Another</Text>
+                <Text style={styles.loseSecondaryButtonText}>Choose Another</Text>
               </TouchableOpacity>
-            </>
+            </View>
           )}
         </Animated.View>
       )}
@@ -677,7 +711,7 @@ function GameScreen({
   )
 }
 
-function HomeScreen({
+const HomeScreen = memo(function HomeScreen({
   highScore,
   diamonds,
   onPlay,
@@ -687,12 +721,16 @@ function HomeScreen({
 }) {
   const size = 5
   const gap = 3
-  const tileSize = (width * 0.7 - gap * size) / size
+  const tileSize = useMemo(() => (width * 0.7 - gap * size) / size, [gap, size])
 
-  const grid = Array.from({ length: size }, () =>
-    Array.from({ length: size }, () =>
-      Math.floor(Math.random() * COLORS.length)
-    )
+  const grid = useMemo(
+    () =>
+      Array.from({ length: size }, () =>
+        Array.from({ length: size }, () =>
+          Math.floor(Math.random() * COLORS.length)
+        )
+      ),
+    [size]
   )
 
   return (
@@ -703,6 +741,9 @@ function HomeScreen({
       </View>
 
       <View style={styles.homeTitleSection}>
+        <View style={styles.homeTopBadge}>
+          <Text style={styles.homeTopBadgeText}>ARCADE PUZZLE</Text>
+        </View>
         <View style={styles.titleRow}>
           {"COLOR FLOOD".split("").map((l, i) => (
             <Text
@@ -714,11 +755,13 @@ function HomeScreen({
           ))}
         </View>
 
-        <Text style={styles.tagline}>Fill the board. Beat the clock.</Text>
+        {/* <Text style={styles.tagline}>Fill the board. Beat the clock.</Text> */}
       </View>
 
       <View style={styles.homeContent}>
-        <View style={styles.homePreview}>
+        {/* <View style={styles.homePreviewCard}> */}
+          {/* <Text style={styles.homePreviewLabel}>Daily Color Rush</Text> */}
+          <View style={styles.homePreview}>
           {grid.map((row, y) => (
             <View key={y} style={{ flexDirection: "row" }}>
               {row.map((c, x) => (
@@ -735,6 +778,7 @@ function HomeScreen({
               ))}
             </View>
           ))}
+          {/* </View> */}
         </View>
 
         <TouchableOpacity style={styles.playButton} onPress={onPlay}>
@@ -766,15 +810,28 @@ function HomeScreen({
       </View>
     </View>
   )
-}
+})
 
-function LevelSelectScreen({
+const LevelSelectScreen = memo(function LevelSelectScreen({
   diamonds,
   unlockedLevel,
   selectedLevel,
   onBack,
   onSelectLevel
 }) {
+  const levels = useMemo(
+    () =>
+      Array.from({ length: MAX_LEVELS }, (_, index) => {
+        const level = index + 1
+
+        return {
+          level,
+          ...getLevelConfig(level)
+        }
+      }),
+    []
+  )
+
   return (
     <View style={styles.levelsContainer}>
       <View style={styles.levelsHeader}>
@@ -787,23 +844,22 @@ function LevelSelectScreen({
 
       <View style={styles.levelTitleWrap}>
         <View style={styles.levelTopBadge}>
-          <Text style={styles.levelTopBadgeText}>STAGE MAP</Text>
+          <Text style={styles.levelTopBadgeText}>LEVEL RUSH</Text>
         </View>
-        <Text style={styles.levelTitle}>CHOOSE YOUR LEVEL</Text>
+        <Text style={styles.levelTitle}>TAP A STAGE</Text>
         <Text style={styles.levelSubtitle}>
-          Clear boards, unlock the next challenge, and keep the streak alive.
+          Pick a board, flood it fast, and unlock the next one.
         </Text>
       </View>
 
       <View style={styles.levelDeck}>
         <ScrollView
-          horizontal
           showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.levelScroller}
         >
-          {Array.from({ length: MAX_LEVELS }, (_, index) => {
-            const level = index + 1
-            const config = getLevelConfig(level)
+          {levels.map(config => {
+            const level = config.level
             const locked = level > unlockedLevel
             const isSelected = level === selectedLevel
 
@@ -816,10 +872,9 @@ function LevelSelectScreen({
                   isSelected && !locked && styles.levelCardActive
                 ]}
               >
-                <View style={styles.levelCardBadge}>
-                  <Text style={styles.levelCardBadgeText}>STAGE</Text>
-                </View>
-                <Text style={styles.levelCardNumber}>Level {level}</Text>
+                <Text style={styles.levelCardCaption}>
+                  {locked ? "Beat the last stage first" : `${config.rows} x ${config.cols} board`}
+                </Text>
                 <LevelPreview rows={config.rows} cols={config.cols} />
                 {locked ? (
                   <View style={styles.levelCardLockedChip}>
@@ -831,7 +886,7 @@ function LevelSelectScreen({
                     onPress={() => onSelectLevel(level)}
                     style={styles.levelPlayButton}
                   >
-                    <Text style={styles.levelPlayButtonText}>Play</Text>
+                    <Text style={styles.levelPlayButtonText}>PLAY</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -841,19 +896,23 @@ function LevelSelectScreen({
       </View>
     </View>
   )
-}
+})
 
-function LevelPreview({ rows, cols }) {
+const LevelPreview = memo(function LevelPreview({ rows, cols }) {
   const previewWidth = 120
   const gap = 2
-  const tileSize = Math.max(
-    4,
-    Math.floor(
-      Math.min(
-        (previewWidth - gap * (cols - 1)) / cols,
-        (72 - gap * (rows - 1)) / rows
-      )
-    )
+  const tileSize = useMemo(
+    () =>
+      Math.max(
+        4,
+        Math.floor(
+          Math.min(
+            (previewWidth - gap * (cols - 1)) / cols,
+            (72 - gap * (rows - 1)) / rows
+          )
+        )
+      ),
+    [cols, rows]
   )
 
   return (
@@ -879,29 +938,38 @@ function LevelPreview({ rows, cols }) {
       ))}
     </View>
   )
-}
+})
 
-function RemoveAdsScreen({ diamonds, onBack, onPremiumPress }) {
+const RemoveAdsScreen = memo(function RemoveAdsScreen({
+  diamonds,
+  onBack,
+  onPremiumPress,
+  onHackPress
+}) {
   return (
     <ScrollView
       contentContainerStyle={styles.removeAdsContainer}
       style={{ backgroundColor: "#0f0f0f" }}
     >
-      <TouchableOpacity style={styles.cornerButton} onPress={onBack}>
-        <Text style={styles.cornerButtonText}>Home</Text>
-      </TouchableOpacity>
+      <View style={styles.levelsHeader}>
+        <TouchableOpacity style={styles.cornerButton} onPress={onBack}>
+          <Text style={styles.cornerButtonText}>Home</Text>
+        </TouchableOpacity>
+        <DiamondBadge value={diamonds} />
+      </View>
 
-      <DiamondBadge value={diamonds} style={styles.diamondBadgeLevels} />
+      <View style={styles.premiumHero}>
+        <Text style={styles.crown}>👑</Text>
+        <View style={styles.levelTopBadge}>
+          <Text style={styles.levelTopBadgeText}>PREMIUM PASS</Text>
+        </View>
+        <Text style={styles.premiumTitle}>GO PREMIUM</Text>
+        <Text style={styles.premiumSubtitle}>
+          Enjoy Color Flood without interruptions and support the game.
+        </Text>
+      </View>
 
-      <Text style={styles.crown}>👑</Text>
-
-      <Text style={styles.premiumTitle}>Go Premium</Text>
-
-      <Text style={styles.premiumSubtitle}>
-        Enjoy Color Flood without interruptions
-      </Text>
-
-      <View style={styles.featureCard}>
+      <View style={styles.premiumFeaturePanel}>
         {[
           "Remove all ads",
           "Unlock all future levels",
@@ -909,7 +977,7 @@ function RemoveAdsScreen({ diamonds, onBack, onPremiumPress }) {
           "Support the developer ❤️"
         ].map((f, i) => (
           <View key={i} style={styles.featureRow}>
-            <Text style={{ marginRight: 10 }}>✅</Text>
+            <Text style={styles.featureCheck}>✓</Text>
             <Text style={styles.featureText}>{f}</Text>
           </View>
         ))}
@@ -919,7 +987,11 @@ function RemoveAdsScreen({ diamonds, onBack, onPremiumPress }) {
         style={styles.premiumButton}
         onPress={onPremiumPress}
       >
-        <Text style={styles.premiumButtonText}>Get Premium — ₹99</Text>
+        <Text style={styles.premiumButtonText}>Get Premium - ₹99</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.hackButton} onPress={onHackPress}>
+        <Text style={styles.hackButtonText}>TEST HACK</Text>
       </TouchableOpacity>
 
       <Text style={styles.purchaseNote}>
@@ -931,18 +1003,18 @@ function RemoveAdsScreen({ diamonds, onBack, onPremiumPress }) {
       </TouchableOpacity>
     </ScrollView>
   )
-}
+})
 
-function DiamondBadge({ value, style }) {
+const DiamondBadge = memo(function DiamondBadge({ value, style }) {
   return (
     <View style={[styles.diamondBadge, style]}>
       <Text style={styles.diamondIcon}>◆</Text>
       <Text style={styles.diamondText}>{value}</Text>
     </View>
   )
-}
+})
 
-function GameDialog({ dialog, onClose }) {
+const GameDialog = memo(function GameDialog({ dialog, onClose }) {
   return (
     <Modal
       transparent
@@ -987,14 +1059,14 @@ function GameDialog({ dialog, onClose }) {
       </View>
     </Modal>
   )
-}
+})
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f0f0f",
     alignItems: "center",
-    paddingTop: 24,
+    paddingTop: TOP_INSET,
     width: "100%"
   },
 
@@ -1219,6 +1291,94 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
 
+  losePanel: {
+    width: "86%",
+    maxWidth: 360,
+    alignItems: "center",
+    backgroundColor: "#1b2330",
+    borderRadius: 30,
+    paddingHorizontal: 24,
+    paddingTop: 26,
+    paddingBottom: 24,
+    borderWidth: 4,
+    borderColor: "#ff6b35"
+  },
+
+  loseBadge: {
+    backgroundColor: "#ffd54f",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8
+  },
+
+  loseBadgeText: {
+    color: "#201600",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 1.2
+  },
+
+  loseTitle: {
+    color: "#fff4db",
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: "900",
+    textAlign: "center",
+    marginTop: 18
+  },
+
+  loseSub: {
+    color: "#d5c7aa",
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 10,
+    textAlign: "center"
+  },
+
+  loseInfoPill: {
+    backgroundColor: "#10151f",
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    marginTop: 18
+  },
+
+  loseInfoText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900"
+  },
+
+  losePrimaryButton: {
+    width: "100%",
+    marginTop: 22,
+    backgroundColor: "#ff6b35",
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: "center"
+  },
+
+  losePrimaryButtonText: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "900"
+  },
+
+  loseSecondaryButton: {
+    width: "100%",
+    marginTop: 12,
+    backgroundColor: "#fff4db",
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: "center"
+  },
+
+  loseSecondaryButtonText: {
+    color: "#1b2330",
+    fontSize: 18,
+    fontWeight: "900"
+  },
+
   button: {
     marginTop: 20,
     backgroundColor: "white",
@@ -1320,7 +1480,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f0f0f",
     alignItems: "center",
     width: "100%",
-    paddingTop: 18,
+    paddingTop: TOP_INSET,
     paddingBottom: 28
   },
 
@@ -1345,6 +1505,21 @@ const styles = StyleSheet.create({
     paddingBottom: 18
   },
 
+  homeTopBadge: {
+    backgroundColor: "#ff6b35",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 18
+  },
+
+  homeTopBadgeText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 1.1
+  },
+
   homeContent: {
     flex: 1,
     width: "100%",
@@ -1354,7 +1529,25 @@ const styles = StyleSheet.create({
   },
 
   homePreview: {
+    marginTop: 14
+  },
+
+  homePreviewCard: {
+    width: "86%",
+    backgroundColor: "#fff4db",
+    borderRadius: 28,
+    borderWidth: 3,
+    borderColor: "#ffd54f",
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    alignItems: "center",
     marginBottom: 28
+  },
+
+  homePreviewLabel: {
+    color: "#201600",
+    fontSize: 20,
+    fontWeight: "900"
   },
 
   titleRow: { flexDirection: "row" },
@@ -1373,9 +1566,9 @@ const styles = StyleSheet.create({
 
   playButton: {
     width: "80%",
-    height: 58,
-    backgroundColor: "white",
-    borderRadius: 16,
+    height: 64,
+    backgroundColor: "#2ecc71",
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20
@@ -1384,15 +1577,16 @@ const styles = StyleSheet.create({
   playText: {
     fontWeight: "900",
     fontSize: 22,
-    color: "black"
+    color: "#062010"
   },
 
   removeAdsButton: {
     width: "80%",
-    height: 50,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "white",
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "#1b2330",
+    borderWidth: 3,
+    borderColor: "#ff6b35",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 14
@@ -1436,16 +1630,17 @@ const styles = StyleSheet.create({
   },
 
   version: {
-    color: "#555",
-    fontSize: 12,
-    marginTop: 20
+    color: "#7a6a49",
+    fontSize: 13,
+    marginTop: 18,
+    fontWeight: "700"
   },
 
   levelsContainer: {
     flex: 1,
     backgroundColor: "#0f0f0f",
     width: "100%",
-    paddingTop: 18,
+    paddingTop: TOP_INSET,
     paddingBottom: 26
   },
 
@@ -1504,7 +1699,7 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     borderWidth: 3,
     borderColor: "#ffd54f",
-    backgroundColor: "#fff4db",
+    backgroundColor: "#ffe8a3",
     paddingVertical: 24,
     shadowColor: "#000",
     shadowOpacity: 0.2,
@@ -1514,14 +1709,17 @@ const styles = StyleSheet.create({
 
   levelScroller: {
     paddingHorizontal: 20,
-    alignItems: "center"
+    paddingBottom: 28,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between"
   },
 
   levelCard: {
-    width: 196,
-    minHeight: 260,
-    marginRight: 18,
-    borderRadius: 28,
+    width: "47%",
+    minHeight: 254,
+    marginBottom: 18,
+    borderRadius: 30,
     backgroundColor: "#1b2330",
     borderWidth: 3,
     borderColor: "#2f3c53",
@@ -1531,38 +1729,60 @@ const styles = StyleSheet.create({
 
   levelCardActive: {
     borderColor: "#2ecc71",
-    transform: [{ translateY: -8 }]
+    // transform: [{ translateY: -8 }]
   },
 
   levelCardLocked: {
     opacity: 0.42
   },
 
+  levelCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+
+  levelNumberBubble: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#ff6b35",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+
+  levelNumberBubbleLocked: {
+    backgroundColor: "#566074"
+  },
+
+  levelNumberBubbleText: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "900"
+  },
+
   levelCardBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#ff6b35",
+    backgroundColor: "#ffd54f",
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6
   },
 
+  levelCardBadgeActive: {
+    backgroundColor: "#2ecc71"
+  },
+
   levelCardBadgeText: {
-    color: "white",
+    color: "#201600",
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1
   },
 
-  levelCardNumber: {
-    color: "#fff4db",
-    fontSize: 28,
-    fontWeight: "900",
-    marginTop: 14
-  },
-
   levelPreview: {
-    marginTop: 18,
-    marginBottom: 16,
+      // marginTop: 18,
+      // marginBottom: 16,
     alignSelf: "center"
   },
 
@@ -1575,8 +1795,16 @@ const styles = StyleSheet.create({
     borderRadius: 2
   },
 
+  levelCardCaption: {
+    color: "#d5c7aa",
+    fontSize: 18  ,
+    fontWeight: "700",
+    textAlign: "center",
+    // marginBottom: 12
+  },
+
   levelCardLockedChip: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     backgroundColor: "#10151f",
     borderWidth: 2,
     borderColor: "#2a3242",
@@ -1595,87 +1823,136 @@ const styles = StyleSheet.create({
 
   levelPlayButton: {
     backgroundColor: "#2ecc71",
-    borderRadius: 18,
-    paddingVertical: 14,
-    alignItems: "center"
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6
   },
 
   levelPlayButtonText: {
     color: "#062010",
     fontWeight: "900",
-    fontSize: 20
+    fontSize: 18
+  },
+
+  levelPlayCost: {
+    color: "#0b3a1d",
+    fontWeight: "900",
+    fontSize: 13,
+    marginTop: 2
   },
 
   removeAdsContainer: {
     alignItems: "center",
-    paddingTop: 80,
+    paddingTop: TOP_INSET,
     paddingBottom: 60
   },
 
+  premiumHero: {
+    width: "100%",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 22
+  },
+
   crown: {
-    fontSize: 64,
-    marginBottom: 10
+    fontSize: 72,
+    marginBottom: 12
   },
 
   premiumTitle: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "white"
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#fff4db",
+    marginTop: 18
   },
 
   premiumSubtitle: {
-    color: "#888",
-    fontSize: 15,
+    color: "#d4c7aa",
+    fontSize: 17,
     textAlign: "center",
-    maxWidth: "70%",
-    marginVertical: 12
+    maxWidth: 320,
+    marginTop: 10,
+    fontWeight: "700",
+    lineHeight: 24
   },
 
-  featureCard: {
-    backgroundColor: "#1a1a1a",
-    borderRadius: 14,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#2a2a2a",
-    width: "80%",
+  premiumFeaturePanel: {
+    backgroundColor: "#fff4db",
+    borderRadius: 28,
+    padding: 22,
+    borderWidth: 3,
+    borderColor: "#ffd54f",
+    width: "86%",
     marginVertical: 20
   },
 
   featureRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10
+    marginBottom: 14
+  },
+
+  featureCheck: {
+    color: "#2ecc71",
+    fontSize: 22,
+    fontWeight: "900",
+    marginRight: 12
   },
 
   featureText: {
-    color: "white",
-    fontSize: 16
+    color: "#201600",
+    fontSize: 18,
+    fontWeight: "800",
+    flex: 1
   },
 
   premiumButton: {
-    width: "80%",
-    height: 58,
-    borderRadius: 16,
-    backgroundColor: "#f1c40f",
+    width: "86%",
+    height: 62,
+    borderRadius: 20,
+    backgroundColor: "#2ecc71",
     alignItems: "center",
     justifyContent: "center"
   },
 
   premiumButtonText: {
-    fontWeight: "bold",
-    fontSize: 18,
-    color: "black"
+    fontWeight: "900",
+    fontSize: 22,
+    color: "#062010"
+  },
+
+  hackButton: {
+    marginTop: 12,
+    backgroundColor: "#1b2330",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#7ed7ff",
+    paddingHorizontal: 18,
+    paddingVertical: 12
+  },
+
+  hackButtonText: {
+    color: "#7ed7ff",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.8
   },
 
   purchaseNote: {
-    color: "#666",
-    fontSize: 12,
-    marginTop: 10
+    color: "#a99c80",
+    fontSize: 14,
+    marginTop: 14,
+    fontWeight: "700"
   },
 
   restore: {
-    marginTop: 10,
-    color: "#888",
+    marginTop: 14,
+    color: "#fff4db",
+    fontWeight: "800",
     textDecorationLine: "underline"
   },
 
