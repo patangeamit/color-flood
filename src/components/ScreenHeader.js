@@ -6,12 +6,15 @@ import styles from "../styles"
 const ScreenHeader = memo(function ScreenHeader({
   leftLabel,
   onLeftPress,
+  leftContent,
   coins,
   gems
 }) {
   return (
     <View style={styles.fixedHeader}>
-      {leftLabel ? (
+      {leftContent ? (
+        leftContent
+      ) : leftLabel ? (
         <TouchableOpacity style={styles.headerButton} onPress={onLeftPress}>
           <Text style={styles.cornerButtonText}>{leftLabel}</Text>
         </TouchableOpacity>

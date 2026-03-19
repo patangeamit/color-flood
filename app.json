@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.amit.tbk.snack568bd5eb22694f0189acd71f60c96597"
+      "bundleIdentifier": "com.paap.colorflood"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.amit.tbk.snack568bd5eb22694f0189acd71f60c96597"
+      "package": "com.paap.colorflood"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -20,6 +20,7 @@ function GameScreen({
   gems,
   highScore,
   onBackToLevels,
+  onShowInstructions,
   onRetry,
   onWin,
   onShareApp,
@@ -236,8 +237,16 @@ function GameScreen({
   return (
     <View style={styles.container}>
       <ScreenHeader
-        leftLabel="Levels"
-        onLeftPress={onBackToLevels}
+        leftContent={(
+          <View style={styles.gameHeaderLeftActions}>
+            <TouchableOpacity style={styles.headerButton} onPress={onBackToLevels}>
+              <Text style={styles.cornerButtonText}>Levels</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIconButton} onPress={onShowInstructions}>
+              <Text style={styles.headerIconButtonText}>i</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         coins={coins}
         gems={gems}
       />
@@ -297,7 +306,7 @@ function GameScreen({
       </View>
 
       <View style={styles.paletteDock}>
-        <Text style={styles.moves}>Moves Left: {movesLeft}</Text>
+        {/* <Text style={styles.moves}>Moves Left: {movesLeft}</Text> */}
 
         <View style={styles.palette}>
           {COLORS.map((color, index) => (

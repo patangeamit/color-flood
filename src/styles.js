@@ -379,6 +379,52 @@ const styles = StyleSheet.create({
     width: 72
   },
 
+  gameHeaderLeftActions: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    marginLeft: 8,
+    borderRadius: 18,
+    backgroundColor: "#1c2331",
+    borderWidth: 1,
+    borderColor: "#344056",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+
+  headerIconButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900"
+  },
+
+  headerRewardBadge: {
+    minWidth: 88,
+    backgroundColor: "#171d29",
+    borderWidth: 1,
+    borderColor: "#2f3c53",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6
+  },
+
+  headerRewardTitle: {
+    color: "#7ed7ff",
+    fontSize: 11,
+    fontWeight: "900"
+  },
+
+  headerRewardText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 2
+  },
+
   cornerButtonText: {
     color: "white",
     fontWeight: "800",
@@ -460,12 +506,79 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1
   },
 
+  homeTitleBlock: {
+    alignItems: "center"
+  },
+
+  homeTitleAccent: {
+    color: "#fff4db",
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: 6,
+    marginBottom: -8
+  },
+
   homeContent: {
     flex: 1,
     width: "100%",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 20
+  },
+
+  dailyRewardCard: {
+    width: "86%",
+    backgroundColor: "#171d29",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#2f3c53",
+    padding: 18,
+    marginBottom: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+
+  dailyRewardEyebrow: {
+    color: "#7ed7ff",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+
+  dailyRewardTitle: {
+    color: "#fff4db",
+    fontSize: 24,
+    fontWeight: "900",
+    marginTop: 6
+  },
+
+  dailyRewardSubtitle: {
+    color: "#a3adbf",
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 6,
+    maxWidth: 180
+  },
+
+  dailyRewardButton: {
+    backgroundColor: "#2ecc71",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 96
+  },
+
+  dailyRewardButtonDisabled: {
+    backgroundColor: "#2a3242"
+  },
+
+  dailyRewardButtonText: {
+    color: "#07111f",
+    fontSize: 14,
+    fontWeight: "900"
   },
 
   homePreview: {
@@ -473,12 +586,24 @@ const styles = StyleSheet.create({
   },
 
   titleRow: {
-    flexDirection: "row"
+    flexDirection: "row",
+    alignItems: "center"
   },
 
   titleLetter: {
-    fontSize: 50,
-    fontWeight: "900"
+    fontSize: 58,
+    fontWeight: "900",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 12
+  },
+
+  homeTagline: {
+    color: "#a3adbf",
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: 10,
+    letterSpacing: 0.3
   },
 
   playButton: {
@@ -538,6 +663,19 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "800",
     fontSize: 16
+  },
+
+  homeCreditsButton: {
+    marginTop: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10
+  },
+
+  homeCreditsButtonText: {
+    color: "#a3adbf",
+    fontSize: 15,
+    fontWeight: "800",
+    textDecorationLine: "underline"
   },
 
   bestText: {
@@ -715,7 +853,9 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: "900",
     color: "#fff4db",
-    marginTop: 18
+    marginTop: 18,
+    alignContent: "center",
+    textAlign: "center"
   },
 
   premiumSubtitle: {
@@ -882,12 +1022,56 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline"
   },
 
+  creditsContainer: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 48
+  },
+
+  creditsHero: {
+    width: "100%",
+    alignItems: "center",
+    paddingTop: 24,
+    paddingBottom: 18
+  },
+
+  creditsCard: {
+    width: "86%",
+    backgroundColor: "#171d29",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#2f3c53",
+    padding: 20,
+    marginBottom: 16
+  },
+
+  creditsSectionTitle: {
+    color: "#fff4db",
+    fontSize: 22,
+    fontWeight: "900",
+    marginBottom: 10
+  },
+
+  creditsLine: {
+    color: "#c3cbda",
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "700",
+    marginBottom: 6
+  },
+
   dialogBackdrop: {
     flex: 1,
     backgroundColor: "rgba(5, 8, 14, 0.72)",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24
+  },
+
+  instructionsBackdrop: {
+    backgroundColor: "rgba(8, 11, 18, 0.9)",
+    paddingHorizontal: 16,
+    paddingVertical: 24
   },
 
   dialogCard: {
@@ -898,6 +1082,155 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#2f3c53",
     padding: 22
+  },
+
+  instructionsDialogCard: {
+    width: "100%",
+    maxWidth: 420,
+    maxHeight: "92%",
+    backgroundColor: "#fff4db",
+    borderWidth: 3,
+    borderColor: "#ffd54f",
+    borderRadius: 30,
+    padding: 0,
+    overflow: "hidden"
+  },
+
+  instructionsScrollContent: {
+    padding: 24
+  },
+
+  instructionsHero: {
+    alignItems: "center"
+  },
+
+  instructionsBadge: {
+    backgroundColor: "#ff6b35",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8
+  },
+
+  instructionsBadgeText: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1
+  },
+
+  instructionsTitle: {
+    color: "#1c1404",
+    fontSize: 30,
+    fontWeight: "900",
+    textAlign: "center",
+    marginTop: 16
+  },
+
+  instructionsMessage: {
+    color: "#6f5a35",
+    fontSize: 16,
+    lineHeight: 23,
+    textAlign: "center",
+    fontWeight: "800",
+    marginTop: 10
+  },
+
+  instructionsPanel: {
+    backgroundColor: "#171d29",
+    borderRadius: 24,
+    padding: 18,
+    marginTop: 20
+  },
+
+  instructionsPanelTitle: {
+    color: "#fff4db",
+    fontSize: 20,
+    fontWeight: "900",
+    marginBottom: 14
+  },
+
+  instructionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14
+  },
+
+  instructionsStep: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#2ecc71",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12
+  },
+
+  instructionsStepText: {
+    color: "#062010",
+    fontSize: 16,
+    fontWeight: "900"
+  },
+
+  instructionsRowText: {
+    flex: 1,
+    color: "white",
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "800"
+  },
+
+  instructionsPreviewCard: {
+    backgroundColor: "#1b2330",
+    borderRadius: 24,
+    padding: 18,
+    marginTop: 20,
+    alignItems: "center"
+  },
+
+  instructionsPreviewRow: {
+    flexDirection: "row"
+  },
+
+  instructionsPreviewTile: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    marginHorizontal: 4
+  },
+
+  instructionsPreviewLabel: {
+    color: "#fff4db",
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+    marginTop: 14
+  },
+
+  instructionsTipsRow: {
+    flexDirection: "row",
+    marginTop: 16
+  },
+
+  instructionsTipCard: {
+    flex: 1,
+    backgroundColor: "#ffefbf",
+    borderRadius: 18,
+    padding: 16,
+    marginHorizontal: 4
+  },
+
+  instructionsTipLabel: {
+    color: "#ff6b35",
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+
+  instructionsTipText: {
+    color: "#1c1404",
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 6
   },
 
   dialogTitle: {
@@ -919,11 +1252,27 @@ const styles = StyleSheet.create({
     marginTop: 22
   },
 
+  instructionsActions: {
+    marginTop: 0,
+    padding: 20,
+    justifyContent: "center",
+    backgroundColor: "#fff4db",
+    borderTopWidth: 1,
+    borderTopColor: "#edd9a0"
+  },
+
   dialogButton: {
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 11,
     marginLeft: 10
+  },
+
+  instructionsPrimaryButton: {
+    flex: 1,
+    marginLeft: 0,
+    minHeight: 52,
+    justifyContent: "center"
   },
 
   dialogButtonPrimary: {
@@ -937,7 +1286,8 @@ const styles = StyleSheet.create({
   },
 
   dialogButtonText: {
-    fontWeight: "bold"
+    fontWeight: "bold",
+    textAlign: "center",
   },
 
   dialogButtonTextPrimary: {

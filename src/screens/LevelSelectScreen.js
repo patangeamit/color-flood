@@ -37,7 +37,7 @@ const LevelSelectScreen = memo(function LevelSelectScreen({
         </View>
         <Text style={styles.levelTitle}>TAP A STAGE</Text>
         <Text style={styles.levelSubtitle}>
-          Pick a board, flood it fast, and unlock the next one.
+          Pick a board, flood it fast, and unlock the next one. Level cost: 1 coin.
         </Text>
       </View>
 

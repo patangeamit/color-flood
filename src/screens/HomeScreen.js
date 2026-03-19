@@ -10,7 +10,12 @@ const HomeScreen = memo(function HomeScreen({
   highScore,
   coins,
   gems,
+  dailyRewardAmount,
+  dailyRewardCountdown,
+  isDailyRewardReady,
+  onClaimDailyReward,
   onPlay,
+  onOpenCredits,
   onOpenShop,
   onShareApp,
   onRateApp
@@ -32,7 +37,17 @@ const HomeScreen = memo(function HomeScreen({
   return (
     <View style={styles.homeContainer}>
       <ScreenHeader
-        leftLabel={null}
+        leftContent={(
+          <TouchableOpacity
+            style={styles.headerRewardBadge}
+            onPress={onClaimDailyReward}
+          >
+            <Text style={styles.headerRewardTitle}>Rewards</Text>
+            <Text style={styles.headerRewardText}>
+              {isDailyRewardReady ? "Claim" : dailyRewardCountdown}
+            </Text>
+          </TouchableOpacity>
+        )}
         coins={coins}
         gems={gems}
       />
@@ -42,16 +57,20 @@ const HomeScreen = memo(function HomeScreen({
         <View style={styles.homeTopBadge}>
           <Text style={styles.homeTopBadgeText}>ARCADE PUZZLE</Text>
         </View>
-        <View style={styles.titleRow}>
-          {"COLOR FLOOD".split("").map((letter, index) => (
-            <Text
-              key={index}
-              style={[styles.titleLetter, { color: COLORS[index % COLORS.length] }]}
-            >
-              {letter}
-            </Text>
-          ))}
+        <View style={styles.homeTitleBlock}>
+          <Text style={styles.homeTitleAccent}>COLOR</Text>
+          <View style={styles.titleRow}>
+            {"FLOOD".split("").map((letter, index) => (
+              <Text
+                key={index}
+                style={[styles.titleLetter, { color: COLORS[(index + 1) % COLORS.length] }]}
+              >
+                {letter}
+              </Text>
+            ))}
+          </View>
         </View>
+        <Text style={styles.homeTagline}>Paint the board before the moves run dry.</Text>
       </View>
 
       <View style={styles.homeContent}>
@@ -96,6 +115,13 @@ const HomeScreen = memo(function HomeScreen({
             <Text style={styles.homeSecondaryActionText}>Rate</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.homeCreditsButton}
+          onPress={onOpenCredits}
+        >
+          <Text style={styles.homeCreditsButtonText}>Credits</Text>
+        </TouchableOpacity>
 
         <Text style={styles.bestText}>Best: {highScore}</Text>
         <Text style={styles.version}>Version 1.0</Text>

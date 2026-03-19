@@ -3,17 +3,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Share, View } from "react-native"
 import GameDialog from "./src/components/GameDialog"
 import {
+  DAILY_GEM_REWARD,
+  DAILY_REWARD_INTERVAL_MS,
   DIALOG_IDLE,
   MAX_LEVELS,
   STARTING_COINS,
   STARTING_GEMS,
   STORAGE_KEY,
+  formatCountdown,
   getLevelConfig
 } from "./src/config"
 import GameScreen from "./src/screens/GameScreen"
 import HomeScreen from "./src/screens/HomeScreen"
 import LevelSelectScreen from "./src/screens/LevelSelectScreen"
 import StoreScreen from "./src/screens/StoreScreen"
+import CreditsScreen from "./src/screens/CreditsScreen"
 import styles from "./src/styles"
 
 export default function App() {
@@ -26,6 +30,9 @@ export default function App() {
   const [gameSession, setGameSession] = useState(0)
   const [isReady, setIsReady] = useState(false)
   const [dialog, setDialog] = useState(DIALOG_IDLE)
+  const [nextDailyRewardAt, setNextDailyRewardAt] = useState(0)
+  const [hasSeenGameInstructions, setHasSeenGameInstructions] = useState(false)
+  const [now, setNow] = useState(Date.now())
 
   const dialogResolverRef = useRef(null)
   const coinsRef = useRef(coins)
@@ -37,6 +44,16 @@ export default function App() {
     gemsRef.current = gems
     unlockedLevelRef.current = unlockedLevel
   }, [coins, gems, unlockedLevel])
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -55,6 +72,8 @@ export default function App() {
         setHighScore(savedState.highScore ?? 0)
         setCoins(savedState.coins ?? savedState.diamonds ?? STARTING_COINS)
         setGems(savedState.gems ?? STARTING_GEMS)
+        setNextDailyRewardAt(savedState.nextDailyRewardAt ?? 0)
+        setHasSeenGameInstructions(savedState.hasSeenGameInstructions ?? false)
         setUnlockedLevel(savedState.unlockedLevel ?? 1)
         setSelectedLevel(savedState.selectedLevel ?? 1)
       }
@@ -82,6 +101,8 @@ export default function App() {
             highScore,
             coins,
             gems,
+            nextDailyRewardAt,
+            hasSeenGameInstructions,
             unlockedLevel,
             selectedLevel
           })
@@ -92,12 +113,25 @@ export default function App() {
     }
 
     persistProgress()
-  }, [coins, gems, highScore, isReady, selectedLevel, unlockedLevel])
+  }, [
+    coins,
+    gems,
+    highScore,
+    hasSeenGameInstructions,
+    isReady,
+    nextDailyRewardAt,
+    selectedLevel,
+    unlockedLevel
+  ])
 
-  const showDialog = useCallback(async ({ title, message, actions }) => {
+  const showDialog = useCallback(async dialogConfig => {
     return new Promise(resolve => {
       dialogResolverRef.current = resolve
-      setDialog({ visible: true, title, message, actions })
+      setDialog({
+        ...DIALOG_IDLE,
+        ...dialogConfig,
+        visible: true
+      })
     })
   }, [])
 
@@ -109,6 +143,54 @@ export default function App() {
       dialogResolverRef.current = null
     }
   }, [])
+
+  const isDailyRewardReady = now >= nextDailyRewardAt
+  const dailyRewardCountdown = isDailyRewardReady
+    ? "Ready now"
+    : formatCountdown(nextDailyRewardAt - now)
+
+  const handleClaimDailyReward = useCallback(async () => {
+    if (Date.now() < nextDailyRewardAt) {
+      await showDialog({
+        title: "Reward charging",
+        message: `Your next daily gem drop will be ready in ${dailyRewardCountdown}.`,
+        actions: [{ key: "ok", label: "OK", style: "primary" }]
+      })
+      return
+    }
+
+    setGems(current => current + DAILY_GEM_REWARD)
+    setNextDailyRewardAt(Date.now() + DAILY_REWARD_INTERVAL_MS)
+    await showDialog({
+      title: "Daily reward claimed",
+      message: `You received ${DAILY_GEM_REWARD} gems. Come back tomorrow for the next drop.`,
+      actions: [{ key: "ok", label: "Nice", style: "primary" }]
+    })
+
+  }, [dailyRewardCountdown, nextDailyRewardAt, showDialog])
+
+  const showGameInstructions = useCallback(async () => {
+    await showDialog({
+      variant: "instructions",
+      title: "How to play",
+      message:
+        "Flood the whole board before your moves run out.",
+      items: [
+        "Start from the top-left tile.",
+        "Tap a color to spread your territory.",
+        "Matching neighbors get absorbed instantly.",
+        "Finish the board before the move counter hits zero."
+      ],
+      actions: [{ key: "ok", label: "Got it", style: "primary" }]
+    })
+  }, [showDialog])
+
+  useEffect(() => {
+    if (!isReady || screen !== "game" || hasSeenGameInstructions) return
+
+    setHasSeenGameInstructions(true)
+    showGameInstructions()
+  }, [hasSeenGameInstructions, isReady, screen, showGameInstructions])
 
   const promptGemShop = useCallback(async requiredCoins => {
     const action = await showDialog({
@@ -290,7 +372,12 @@ export default function App() {
           highScore={highScore}
           coins={coins}
           gems={gems}
+          dailyRewardAmount={DAILY_GEM_REWARD}
+          dailyRewardCountdown={dailyRewardCountdown}
+          isDailyRewardReady={isDailyRewardReady}
+          onClaimDailyReward={handleClaimDailyReward}
           onPlay={() => setScreen("levels")}
+          onOpenCredits={() => setScreen("credits")}
           onOpenShop={() => setScreen("shop")}
           onShareApp={handleShareApp}
           onRateApp={handleRateApp}
@@ -306,11 +393,28 @@ export default function App() {
         <StoreScreen
           coins={coins}
           gems={gems}
+          dailyRewardAmount={DAILY_GEM_REWARD}
+          dailyRewardCountdown={dailyRewardCountdown}
+          isDailyRewardReady={isDailyRewardReady}
+          onClaimDailyReward={handleClaimDailyReward}
           onBack={() => setScreen("home")}
           onBuyGemPack={handleBuyGemPack}
           onExchangeGems={handleExchangeGems}
           onRestorePurchases={handleRestorePurchases}
           onHackPress={handleHackProgress}
+        />
+        <GameDialog dialog={dialog} onClose={closeDialog} />
+      </>
+    )
+  }
+
+  if (screen === "credits") {
+    return (
+      <>
+        <CreditsScreen
+          coins={coins}
+          gems={gems}
+          onBack={() => setScreen("home")}
         />
         <GameDialog dialog={dialog} onClose={closeDialog} />
       </>
@@ -342,6 +446,7 @@ export default function App() {
         gems={gems}
         highScore={highScore}
         onBackToLevels={handleExitLevel}
+        onShowInstructions={showGameInstructions}
         onRetry={handleRetry}
         onWin={handleWin}
         onShareApp={handleShareApp}

@@ -9,9 +9,11 @@ export const COLORS = [
   "#e67e22"
 ]
 
-export const MAX_LEVELS = 40
+export const MAX_LEVELS = 45
 export const STARTING_COINS = 8
 export const STARTING_GEMS = 0
+export const DAILY_GEM_REWARD = 3
+export const DAILY_REWARD_INTERVAL_MS = 24 * 60 * 60 * 1000
 export const DIALOG_IDLE = { visible: false, title: "", message: "", actions: [] }
 export const STORAGE_KEY = "color-flood-progress"
 export const TOP_INSET = (StatusBar.currentHeight || 0) + 12
@@ -35,4 +37,13 @@ export function getLevelConfig(level) {
   const reward = entryCost + 3
 
   return { rows, cols, moveLimit, entryCost, reward }
+}
+
+export function formatCountdown(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000))
+  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0")
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0")
+  const seconds = String(totalSeconds % 60).padStart(2, "0")
+
+  return `${hours}:${minutes}:${seconds}`
 }
