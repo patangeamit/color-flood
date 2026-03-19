@@ -78,9 +78,9 @@ const HomeScreen = memo(function HomeScreen({
           <Text style={styles.playText}>PLAY</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.storeButton} onPress={onOpenShop}>
+        {/* <TouchableOpacity style={styles.storeButton} onPress={onOpenShop}>
           <Text style={styles.storeButtonText}>BUY GEMS</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <View style={styles.homeActionRow}>
           <TouchableOpacity

@@ -30,7 +30,7 @@ export function getLevelConfig(level) {
   const index = Math.max(0, level - 1)
   const cols = Math.min(5 + Math.floor((index + 1) / 2), 18)
   const rows = Math.min(7 + Math.floor(index / 2), 21)
-  const moveLimit = Math.max(10, rows + cols + 2 + Math.floor(index / 3))
+  const moveLimit = Math.max(10, rows + cols + 2 + Math.floor(index / 16))
   const entryCost = 1 + Math.floor(index / 2)
   const reward = entryCost + 3
 
